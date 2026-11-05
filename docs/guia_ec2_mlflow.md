@@ -46,6 +46,19 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+**Memoria de respaldo (swap).** La t3.medium tiene 4 GB de RAM; con MLflow corriendo, los Random forest
+la agotan y Linux mata el proceso (`Killed`). Se agregan 4 GB de swap una sola vez:
+
+```bash
+sudo dd if=/dev/zero of=/swapfile bs=128M count=32
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+free -h          # la fila Swap debe decir ~4.0Gi
+```
+
+El swap se apaga al reiniciar la máquina; al volver a encenderla basta con `sudo swapon /swapfile`.
+
 **Datos.** Opción A, con `LabInstanceProfile`:
 
 ```bash
@@ -69,13 +82,18 @@ cd ~/pgcb-demanda && source .venv/bin/activate
 mlflow server --host 0.0.0.0 --port 5000 \
   --backend-store-uri sqlite:///mlflow.db \
   --artifacts-destination ./mlartifacts \
-  --allowed-hosts "*"
+  --allowed-hosts "*" \
+  --cors-allowed-origins "http://<IP-PUBLICA>:5000" \
+  --workers 2
 ```
 
 Salga de tmux sin detener el servidor con **Ctrl+B y luego D**.
 
-`--allowed-hosts "*"` es necesario: MLflow 3 rechaza por defecto las peticiones que llegan con la
-IP pública. `sqlite` habilita el **Model Registry**, donde quedan registrados los modelos finales.
+`--allowed-hosts "*"` y `--cors-allowed-origins` son necesarios: MLflow 3 rechaza por defecto las
+peticiones que llegan con la IP pública (en el navegador sale *Request error / INTERNAL_ERROR* y en el log
+*Blocked cross-origin request* con `403 Forbidden`). Como la IP cambia cada vez que se enciende la
+máquina, hay que poner la IP nueva en `--cors-allowed-origins`. `--workers 2` reduce la memoria que usa
+el servidor. `sqlite` habilita el **Model Registry**, donde quedan registrados los modelos finales.
 
 Compruebe en su navegador: `http://<IP-PUBLICA>:5000` debe mostrar MLflow.
 
@@ -119,7 +137,8 @@ detenida. Al volver a encenderla, la IP cambia. Para retomar:
 ```bash
 ssh -i ~/Documents/Despliegue/Despliegue.pem ec2-user@<NUEVA-IP>
 cd ~/pgcb-demanda && source .venv/bin/activate
-tmux new -s mlflow   # y repetir el comando de mlflow server del paso 3
+sudo swapon /swapfile
+tmux new -s mlflow   # y repetir el comando de mlflow server del paso 3, con la NUEVA IP en --cors-allowed-origins
 ```
 
 Los experimentos no se pierden: quedan en `mlflow.db` y `mlartifacts/` dentro de la máquina.
