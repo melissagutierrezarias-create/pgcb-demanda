@@ -3,3 +3,7 @@ __pycache__/
 .ipynb_checkpoints/
 *.pyc
 .DS_Store
+# MLflow (los experimentos viven en el servidor de EC2)
+mlruns/
+mlartifacts/
+*.db
