@@ -1,0 +1,40 @@
+/* Fila de tarjetas */
+#kpis { display: flex; gap: 1.5rem; margin-top: 20px; }
+.kpi { flex: 1; background-color: #1f2630; padding: 1rem 1.5rem; }
+.kpi-titulo { margin: 0; font-size: 13px; color: #7fafdf; }
+.kpi-valor { margin: 0.5rem 0 0 0; font-size: 2.4rem; font-weight: 600; color: #2cfec1; }
+#kpi-horas, #kpi-deficit { color: #ff6b6b; }
+
+/* Panel de alertas (columna izquierda) */
+#alert-card > p { font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+#lista-alertas { list-style: none; padding: 0; }
+#lista-alertas li { margin-bottom: 0.4rem; }
+#lista-alertas li::before { content: "● "; color: #ff6b6b; }
+
+/* Nota pequeña dentro de una tarjeta */
+.kpi-nota { display: block; font-size: 12px; font-weight: 400; color: #7fafdf; margin-top: 0.3rem; }
+
+/* Paneles históricos, lado a lado */
+#historicos { display: flex; gap: 1.5rem; }
+.panel-historico { flex: 1; min-width: 0; background-color: #1f2630; padding: 1rem; margin-top: 20px; }
+.panel-historico > b { line-height: 2.5; }
+
+/* Controles: texto oscuro sobre su fondo blanco */
+#componente-fecha input,
+#componente-hora *,
+#campo-slider input { color: #1f2630 !important; }
+[class*="dropdown"] { color: #1f2630; }
+#alert-card {margin-top: 3rem;}
+
+/* Slider: cuadro del valor más ancho y barra visible */
+#campo-slider input { min-width: 3.5em; text-align: center; }
+#campo-slider [class*="mark"] { color: #7fafdf !important; }
+
+/* Calendario: quitar el "cuadro dentro del cuadro" que pone base.css */
+#componente-fecha input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    height: auto !important;
+    padding: 0.4rem 0.6rem !important;
+}
