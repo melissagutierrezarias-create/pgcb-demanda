@@ -5,6 +5,8 @@ from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 import numpy as np
 import pandas as pd
+import joblib
+from src import features as F
 import datetime as dt
 
 
@@ -29,26 +31,26 @@ def load_data():
 
 # Cargar datos
 data = load_data()
+modelo = joblib.load('models/modelo_demanda.joblib')
 
 # Graficar serie
-def plot_series(data, initial_date, horas):
-    data_plot = data.loc[initial_date:].head(horas)
+def plot_series(data, fecha, horas):
+    historia = data.loc[:fecha].tail(24 * 14)
+    pron = pronosticar(historia)
+    real = data["demand_mw"].reindex(pron.index)
+    pasado = historia.tail(horas)
+
     fig = go.Figure([
-        go.Scatter(
-            name='Demanda',
-            x=data_plot.index,
-            y=data_plot['demand_mw'],
-            mode='lines',
-            line=dict(color="#2cfec1", width=2),
-        ),
-        go.Scatter(
-            name='Generación',
-            x=data_plot.index,
-            y=data_plot['generation_mw'],
-            mode='lines',
-            line=dict(color="#7fafdf", dash="dash"),
-        ),
+        go.Scatter(name='Demanda (historia)', x=pasado.index, y=pasado['demand_mw'],
+                   mode='lines', line=dict(color="#2cfec1", width=2)),
+        go.Scatter(name='Pronóstico', x=pron.index, y=pron['pronostico'],
+                   mode='lines+markers', line=dict(color="#ffb347", width=3)),
+        go.Scatter(name='Demanda real', x=real.index, y=real,
+                   mode='lines', line=dict(color="#2cfec1", dash="dot")),
+        go.Scatter(name='Generación disponible', x=pron.index, y=pron['gen_disponible'],
+                   mode='lines', line=dict(color="#7fafdf", dash="dash")),
     ])
+    fig.add_vline(x=fecha, line_dash="dot", line_color="#7C7C7C")
 
     fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -60,7 +62,13 @@ def plot_series(data, initial_date, horas):
     fig.update_yaxes(showgrid=True, gridwidth=0.25, gridcolor='#7C7C7C')
     return fig
 
-   
+def pronosticar(historia):
+    futuro = pd.date_range(historia.index[-1] + pd.Timedelta(hours=1), periods=24, freq="h")
+    serie = historia.reindex(historia.index.append(futuro))
+    X = F.construir(serie)
+    pred = modelo.predict(X.loc[futuro])
+    gen_disp = serie["generation_mw"].shift(24).loc[futuro]
+    return pd.DataFrame({"pronostico": pred, "gen_disponible": gen_disp.values}, index=futuro)   
 
 
 def description_card():
@@ -74,8 +82,9 @@ def description_card():
             html.H3("Pronóstico de demanda eléctrica · PGCB"),
             html.Div(
                 id="intro",
-                children="Demanda y generación eléctrica horaria de la red nacional de Bangladesh (PGCB). "
-             "Elija una fecha y cuántas horas quiere ver."
+                children="Elija una fecha y hora: el tablero toma la historia hasta ese momento y "
+                        "pronostica la demanda de las 24 horas siguientes, comparándola con la "
+                        "generación disponible y con lo que realmente ocurrió."
             ),
         ],
     )
@@ -100,9 +109,9 @@ def generate_control_card():
                         children=[
                             dcc.DatePickerSingle(
                                 id='datepicker-inicial',
-                                min_date_allowed=min(data.index.date),
+                                min_date_allowed=dt.date(2024, 6, 18),
                                 max_date_allowed=max(data.index.date),
-                                initial_visible_month=min(data.index.date),
+                                initial_visible_month=max(data.index.date),
                                 date=max(data.index.date)-dt.timedelta(days=7)
                             )
                         ],
@@ -133,7 +142,7 @@ def generate_control_card():
             html.Div(
                 id="campo-slider",
                 children=[
-                    html.P("Horas a mostrar:"),
+                    html.P("Horas de historia a mostrar:"),
                     dcc.Slider(
                         id="slider-proyeccion",
                         min=24,
