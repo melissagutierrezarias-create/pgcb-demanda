@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from mlflow.models import infer_signature
 from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score
 from sklearn.pipeline import Pipeline
@@ -142,8 +143,10 @@ def construir_alerta(tipo: str, conjunto: str | None, params: dict):
     if tipo == "logistica":
         cat = [c for c in CATEGORICAS if c in cols]
         num = [c for c in cols if c not in cat]
-        prep = ColumnTransformer([("cat", OneHotEncoder(handle_unknown="ignore"), cat),
-                                  ("num", StandardScaler(), num)])
+        prep = ColumnTransformer([
+            ("cat", OneHotEncoder(handle_unknown="ignore"), cat),
+            ("num", Pipeline([("imp", SimpleImputer(strategy="median")), ("esc", StandardScaler())]), num),
+        ])
         est = Pipeline([("prep", prep), ("modelo", LogisticRegression(
             C=params.get("C", 1.0), class_weight="balanced", max_iter=2000))])
         return Clasificador(est, cols)
@@ -212,7 +215,9 @@ def ejecutar(tipo, conjunto=None, params=None, nombre=None, datos=None, final=Fa
         m = construir_alerta(tipo, conjunto, params).fit(tr, tr["y"])
         s_va = m.puntaje(va)
         # Las reglas de la Entrega 1 usan umbral 0 (alerta si la demanda supera la generación disponible)
-        umbral = float(params["umbral_fijo"]) if "umbral_fijo" in params else umbral_para_sensibilidad(va["y"], s_va)
+        # (estrictamente mayor: se suma un margen mínimo para que una diferencia de 0 MW no alerte)
+        umbral = (float(params["umbral_fijo"]) + 1e-6 if "umbral_fijo" in params
+                  else umbral_para_sensibilidad(va["y"], s_va))
         # 2) Final: reentrena con entrenamiento + validación y conserva el umbral
         if final:
             trva = pd.concat([tr, va])
