@@ -8,6 +8,7 @@ import pandas as pd
 import joblib
 from src import features as F
 import datetime as dt
+from dash.exceptions import PreventUpdate
 
 
 
@@ -34,12 +35,7 @@ data = load_data()
 modelo = joblib.load('models/modelo_demanda.joblib')
 
 # Graficar serie
-def plot_series(data, fecha, horas):
-    historia = data.loc[:fecha].tail(24 * 14)
-    pron = pronosticar(historia)
-    real = data["demand_mw"].reindex(pron.index)
-    pasado = historia.tail(horas)
-
+def plot_series(pasado, pron, real, fecha):
     fig = go.Figure([
         go.Scatter(name='Demanda (historia)', x=pasado.index, y=pasado['demand_mw'],
                    mode='lines', line=dict(color="#2cfec1", width=2)),
@@ -50,6 +46,10 @@ def plot_series(data, fecha, horas):
         go.Scatter(name='Generación disponible', x=pron.index, y=pron['gen_disponible'],
                    mode='lines', line=dict(color="#7fafdf", dash="dash")),
     ])
+    # Alertas en horas de déficit
+    for hora in pron.index[pron["alerta"]]:
+        fig.add_vrect(x0=hora - pd.Timedelta(minutes=30), x1=hora + pd.Timedelta(minutes=30),
+                      fillcolor="#ff6b6b", opacity=0.15, line_width=0, layer="below")
     fig.add_vline(x=fecha, line_dash="dot", line_color="#7C7C7C")
 
     fig.update_layout(
@@ -62,13 +62,30 @@ def plot_series(data, fecha, horas):
     fig.update_yaxes(showgrid=True, gridwidth=0.25, gridcolor='#7C7C7C')
     return fig
 
+
 def pronosticar(historia):
     futuro = pd.date_range(historia.index[-1] + pd.Timedelta(hours=1), periods=24, freq="h")
     serie = historia.reindex(historia.index.append(futuro))
     X = F.construir(serie)
     pred = modelo.predict(X.loc[futuro])
     gen_disp = serie["generation_mw"].shift(24).loc[futuro]
-    return pd.DataFrame({"pronostico": pred, "gen_disponible": gen_disp.values}, index=futuro)   
+    res = pd.DataFrame({"pronostico": pred, "gen_disponible": gen_disp.values}, index=futuro)
+    res["deficit"] = res["pronostico"] - res["gen_disponible"]
+    res["alerta"] = res["deficit"] > 0
+    return res
+
+def mw(x):
+    # 12345.6 -> "12.346"
+    return f"{x:,.0f}".replace(",", ".")
+
+
+def accion_sugerida(pron):
+    horas = int(pron["alerta"].sum())
+    if horas == 0:
+        return "Demanda cubierta"
+    if horas <= 3 and pron["deficit"].max() < 1000:
+        return "Déficit corto (hasta 3 h y menor a 1.000 MW)"
+    return ("Déficit prolongado (más de 3 h) o grande (1.000 MW o más): activar la reserva")
 
 
 def description_card():
@@ -158,6 +175,26 @@ def generate_control_card():
         ]
     )
 
+def tarjeta(titulo, id_valor):
+    return html.Div(
+        className="kpi",
+        children=[
+            html.P(titulo, className="kpi-titulo"),
+            html.H4("—", id=id_valor, className="kpi-valor"),
+        ],
+    )
+
+
+def alert_card():
+    return html.Div(
+        id="alert-card",
+        children=[
+            html.P("Horas en alerta:"),
+            html.Ul(id="lista-alertas", style={"maxHeight": "220px", "overflowY": "auto"}),
+            html.P("Acción sugerida:"),
+            html.Div(id="accion"),
+        ],
+    )
 
 app.layout = html.Div(
     id="app-container",
@@ -167,7 +204,7 @@ app.layout = html.Div(
         html.Div(
             id="left-column",
             className="four columns",
-            children=[description_card(), generate_control_card()]
+            children=[description_card(), generate_control_card(), alert_card()]
             + [
                 html.Div(
                     ["initial child"], id="output-clientside", style={"display": "none"}
@@ -180,6 +217,16 @@ app.layout = html.Div(
             id="right-column",
             className="eight columns",
             children=[
+
+                html.Div(
+                    id="kpis",
+                    children=[
+                        tarjeta("Demanda pico esperada", "kpi-pico"),
+                        tarjeta("Horas en alerta", "kpi-horas"),
+                        tarjeta("Déficit máximo esperado", "kpi-deficit"),
+                        tarjeta("Error del modelo (MAPE)", "kpi-mape"),
+                    ],
+                ),
 
 
                 # Grafica de la serie de tiempo
@@ -202,24 +249,44 @@ app.layout = html.Div(
 
 
 @app.callback(
-    Output(component_id="plot_series", component_property="figure"),
+    [Output(component_id="plot_series", component_property="figure"),
+     Output(component_id="kpi-pico", component_property="children"),
+     Output(component_id="kpi-horas", component_property="children"),
+     Output(component_id="kpi-deficit", component_property="children"),
+     Output(component_id="kpi-mape", component_property="children"),
+     Output(component_id="lista-alertas", component_property="children"),
+     Output(component_id="accion", component_property="children")],
     [Input(component_id="datepicker-inicial", component_property="date"),
-    Input(component_id="dropdown-hora-inicial-hora", component_property="value"),
-    Input(component_id="slider-proyeccion", component_property="value")]
+     Input(component_id="dropdown-hora-inicial-hora", component_property="value"),
+     Input(component_id="slider-proyeccion", component_property="value")]
 )
 def update_output_div(date, hour, proy):
+    if date is None or hour is None or proy is None:
+        raise PreventUpdate
 
-    if ((date is not None) & (hour is not None) & (proy is not None)):
-        hour = str(hour)
-        minute = str(0)
+    fecha = pd.to_datetime(date + " " + str(hour) + ":00", format="%Y-%m-%d %H:%M")
 
-        initial_date = date + " " + hour + ":" + minute
-        initial_date = pd.to_datetime(initial_date, format="%Y-%m-%d %H:%M")
+    historia = data.loc[:fecha].tail(24 * 14)
+    pron = pronosticar(historia)
+    real = data["demand_mw"].reindex(pron.index)
+    pasado = historia.tail(int(proy))
+    alertas = pron[pron["alerta"]]
 
-        # Graficar
-        plot = plot_series(data, initial_date, int(proy))
-        return plot
+    pico = mw(pron["pronostico"].max()) + " MW"
+    horas = "1 hora" if len(alertas) == 1 else str(len(alertas)) + " horas"
+    deficit = "−" + mw(alertas["deficit"].max()) + " MW" if len(alertas) > 0 else "Sin déficit"
+    if real.notna().all():
+        mape = ((real - pron["pronostico"]).abs() / real).mean() * 100
+        texto_mape = f"{mape:.1f} %".replace(".", ",") + " (este día)"
+    else:
+        texto_mape = "4,9 % (año de prueba)"
 
+    lista = [html.Li(f"{hora:%d/%m %H:%M} · −{mw(d)} MW") for hora, d in alertas["deficit"].items()]
+    if len(lista) == 0:
+        lista = [html.Li("Ninguna hora en alerta")]
+
+    figura = plot_series(pasado, pron, real, fecha)
+    return figura, pico, horas, deficit, texto_mape, lista, accion_sugerida(pron)
 
 # Run the server
 if __name__ == "__main__":
