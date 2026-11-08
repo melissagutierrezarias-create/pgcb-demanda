@@ -10,3 +10,17 @@
 #lista-alertas { list-style: none; padding: 0; }
 #lista-alertas li { margin-bottom: 0.4rem; }
 #lista-alertas li::before { content: "● "; color: #ff6b6b; }
+
+/* Nota pequeña dentro de una tarjeta */
+.kpi-nota { display: block; font-size: 12px; font-weight: 400; color: #7fafdf; margin-top: 0.3rem; }
+
+/* Paneles históricos, lado a lado */
+#historicos { display: flex; gap: 1.5rem; }
+.panel-historico { flex: 1; min-width: 0; background-color: #1f2630; padding: 1rem; margin-top: 20px; }
+.panel-historico > b { line-height: 2.5; }
+
+/* Controles: texto oscuro sobre su fondo blanco */
+#componente-fecha input,
+#componente-hora *,
+#campo-slider input { color: #1f2630 !important; }
+[class*="dropdown"] { color: #1f2630; }

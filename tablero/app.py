@@ -62,6 +62,51 @@ def plot_series(pasado, pron, real, fecha):
     fig.update_yaxes(showgrid=True, gridwidth=0.25, gridcolor='#7C7C7C')
     return fig
 
+def estilo_oscuro(fig):
+    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                      font_color="#2cfec1", height=320, margin=dict(l=10, r=10, t=40, b=10),
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    fig.update_xaxes(showgrid=False)
+    fig.update_yaxes(showgrid=True, gridwidth=0.25, gridcolor='#7C7C7C')
+    return fig
+
+
+def figura_mezcla(data):
+    # Agrupar las fuentes
+    grupos = pd.DataFrame({
+        "Gas": data["gas"],
+        "Carbón": data["coal"],
+        "Fuel/diésel": data["liquid_fuel"],
+        "Importación": data[["india_bheramara_hvdc", "india_tripura", "india_adani", "nepal"]].sum(axis=1),
+        "Renovables": data[["hydro", "solar", "wind"]].sum(axis=1),
+    })
+    # Totales generación
+    anual = grupos.groupby(data.index.year).sum()
+    pct = anual.div(anual.sum(axis=1), axis=0) * 100
+
+    colores = {"Gas": "#2a78d6", "Carbón": "#eb6834", "Fuel/diésel": "#ffb347",
+               "Importación": "#7fafdf", "Renovables": "#2cfec1"}
+    fig = go.Figure([go.Bar(name=c, x=pct.index, y=pct[c], marker_color=colores[c])
+                     for c in pct.columns])
+    fig.update_layout(barmode="stack", yaxis_title="% de la generación")
+    return estilo_oscuro(fig)
+
+
+def figura_racionamiento(data):
+    meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    # Tabla de racionamiento promedio
+    tabla = data.pivot_table(index=data.index.hour, columns=data.index.month,
+                             values="load_shedding", aggfunc="mean")
+    fig = go.Figure(go.Heatmap(
+        z=tabla.values,
+        x=[meses[m - 1] for m in tabla.columns],
+        y=tabla.index,
+        colorscale="Reds",
+        colorbar=dict(title="MW"),
+        hovertemplate="%{x}, %{y}:00 h<br>%{z:.0f} MW en promedio<extra></extra>",
+    ))
+    fig.update_yaxes(autorange="reversed", title="Hora del día", dtick=3, showgrid=False)
+    return estilo_oscuro(fig)
 
 def pronosticar(historia):
     futuro = pd.date_range(historia.index[-1] + pd.Timedelta(hours=1), periods=24, freq="h")
@@ -165,7 +210,7 @@ def generate_control_card():
                         min=24,
                         max=336,
                         step=24,
-                        value=168,
+                        value=48,
                         marks=None,
                         tooltip={"placement": "bottom", "always_visible": True},
                     )
@@ -240,6 +285,28 @@ app.layout = html.Div(
                         )
                     ],
                 ),
+                #Paneles Históricos            
+                html.Div(
+                    id="historicos",
+                    children=[
+                        html.Div(
+                            className="panel-historico",
+                            children=[
+                                html.B("Mezcla de generación por fuente"),
+                                html.Hr(),
+                                dcc.Graph(figure=figura_mezcla(data)),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel-historico",
+                            children=[
+                                html.B("Racionamiento histórico por hora y mes"),
+                                html.Hr(),
+                                dcc.Graph(figure=figura_racionamiento(data)),
+                            ],
+                        ),
+                    ],
+                ),
 
             
             ],
@@ -277,9 +344,9 @@ def update_output_div(date, hour, proy):
     deficit = "−" + mw(alertas["deficit"].max()) + " MW" if len(alertas) > 0 else "Sin déficit"
     if real.notna().all():
         mape = ((real - pron["pronostico"]).abs() / real).mean() * 100
-        texto_mape = f"{mape:.1f} %".replace(".", ",") + " (este día)"
+        texto_mape = [f"{mape:.1f} %".replace(".", ","), html.Span("este día", className="kpi-nota")]
     else:
-        texto_mape = "4,9 % (año de prueba)"
+        texto_mape = ["4,9 %", html.Span("año de prueba", className="kpi-nota")]
 
     lista = [html.Li(f"{hora:%d/%m %H:%M} · −{mw(d)} MW") for hora, d in alertas["deficit"].items()]
     if len(lista) == 0:
