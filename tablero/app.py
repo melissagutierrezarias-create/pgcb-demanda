@@ -1,7 +1,7 @@
 import dash
 from dash import dcc
 from dash import html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 import numpy as np
 import pandas as pd
@@ -9,6 +9,10 @@ import joblib
 from src import features as F
 import datetime as dt
 from dash.exceptions import PreventUpdate
+#Pendiente para carga y descarga de archivos
+import base64
+import io
+from dash import no_update
 
 
 
@@ -151,6 +155,15 @@ def description_card():
         ],
     )
 
+def calcular(date, hour):
+    fecha = pd.to_datetime(date + " " + str(hour) + ":00", format="%Y-%m-%d %H:%M")
+    historia = data.loc[:fecha].tail(24 * 14)
+    pron = pronosticar(historia)
+    real = data["demand_mw"].reindex(pron.index)
+    return historia, pron, real
+
+
+
 
 def generate_control_card():
     """
@@ -174,7 +187,7 @@ def generate_control_card():
                                 min_date_allowed=dt.date(2024, 6, 18),
                                 max_date_allowed=max(data.index.date),
                                 initial_visible_month=max(data.index.date),
-                                date=max(data.index.date)-dt.timedelta(days=7)
+                                date=max(data.index.date),
                             )
                         ],
                         style=dict(width='30%')
@@ -188,7 +201,7 @@ def generate_control_card():
                             dcc.Dropdown(
                                 id="dropdown-hora-inicial-hora",
                                 options=[{"label": i, "value": i} for i in np.arange(0,24)],
-                                value=pd.to_datetime(max(data.index)-dt.timedelta(days=7)).hour,
+                                value=max(data.index).hour,
                                 clearable=False,
                                 # style=dict(width='50%', display="inline-block")
                             )
@@ -205,15 +218,14 @@ def generate_control_card():
             html.Div(
                 id="campo-slider",
                 children=[
-                    html.P("Horas de historia a mostrar:"),
+                    html.P("Días de historia a mostrar:"),
                     dcc.Slider(
                         id="slider-proyeccion",
-                        min=24,
-                        max=336,
-                        step=24,
-                        value=48,
-                        marks=None,
-                        tooltip={"placement": "bottom", "always_visible": True},
+                        min=1,
+                        max=7,
+                        step=1,
+                        value=2,
+                        marks={i: f"{i} d" for i in range(1, 8)},
                     )
                 ]
             )     
@@ -332,12 +344,9 @@ def update_output_div(date, hour, proy):
     if date is None or hour is None or proy is None:
         raise PreventUpdate
 
-    fecha = pd.to_datetime(date + " " + str(hour) + ":00", format="%Y-%m-%d %H:%M")
-
-    historia = data.loc[:fecha].tail(24 * 14)
-    pron = pronosticar(historia)
-    real = data["demand_mw"].reindex(pron.index)
-    pasado = historia.tail(int(proy))
+    historia, pron, real = calcular(date, hour)
+    fecha = historia.index[-1]
+    pasado = historia.tail(int(proy) * 24)
     alertas = pron[pron["alerta"]]
 
     pico = mw(pron["pronostico"].max()) + " MW"

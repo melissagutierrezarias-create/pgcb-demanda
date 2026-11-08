@@ -25,3 +25,7 @@
 #campo-slider input { color: #1f2630 !important; }
 [class*="dropdown"] { color: #1f2630; }
 #alert-card {margin-top: 3rem;}
+
+/* Slider: cuadro del valor más ancho y barra visible */
+#campo-slider input { min-width: 3.5em; text-align: center; }
+#campo-slider [class*="rail"] { background-color: #4b5a73 !important; }
