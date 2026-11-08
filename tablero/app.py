@@ -181,7 +181,7 @@ def generate_control_card():
                     ),
                     
                     html.P(" ",style=dict(width='5%', textAlign='center')),
-                    
+                    #Dropdown Hora
                     html.Div(
                         id="componente-hora",
                         children=[
@@ -189,10 +189,11 @@ def generate_control_card():
                                 id="dropdown-hora-inicial-hora",
                                 options=[{"label": i, "value": i} for i in np.arange(0,24)],
                                 value=pd.to_datetime(max(data.index)-dt.timedelta(days=7)).hour,
+                                clearable=False,
                                 # style=dict(width='50%', display="inline-block")
                             )
                         ],
-                        style=dict(width='20%')
+                        style=dict(width='30%')
                     ),
                 ],
                 style=dict(display='flex')

@@ -24,3 +24,4 @@
 #componente-hora *,
 #campo-slider input { color: #1f2630 !important; }
 [class*="dropdown"] { color: #1f2630; }
+#alert-card {margin-top: 3rem;}
