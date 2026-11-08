@@ -28,4 +28,13 @@
 
 /* Slider: cuadro del valor más ancho y barra visible */
 #campo-slider input { min-width: 3.5em; text-align: center; }
-#campo-slider [class*="rail"] { background-color: #4b5a73 !important; }
+#campo-slider [class*="mark"] { color: #7fafdf !important; }
+
+/* Calendario: quitar el "cuadro dentro del cuadro" que pone base.css */
+#componente-fecha input {
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    height: auto !important;
+    padding: 0.4rem 0.6rem !important;
+}

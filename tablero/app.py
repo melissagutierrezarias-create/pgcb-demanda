@@ -190,7 +190,7 @@ def generate_control_card():
                                 date=max(data.index.date),
                             )
                         ],
-                        style=dict(width='30%')
+                        style=dict(width='40%')
                     ),
                     
                     html.P(" ",style=dict(width='5%', textAlign='center')),
