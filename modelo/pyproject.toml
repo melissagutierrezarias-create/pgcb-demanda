@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pgcb-modelo"
+dynamic = ["version"]
+description = "Pronóstico de demanda eléctrica a 24 h y alerta de déficit para la red de Bangladesh (PGCB)"
+readme = "README.md"
+requires-python = ">=3.11"
+# Las mismas versiones con las que se entrenó el modelo (requirements.txt del repositorio)
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scikit-learn==1.9.1",
+    "lightgbm==4.7.0",
+    "holidays==0.108",
+    "joblib>=1.4",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.setuptools.dynamic]
+version = {file = "pgcb_modelo/VERSION"}
+
+[tool.setuptools.packages.find]
+include = ["pgcb_modelo*"]
+
+[tool.setuptools.package-data]
+pgcb_modelo = ["VERSION", "trained/*.joblib", "datos/*.csv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
