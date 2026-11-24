@@ -7,3 +7,9 @@ __pycache__/
 mlruns/
 mlartifacts/
 *.db
+
+# Paquete del modelo (el .whl se copia a api/model-pkg/)
+modelo/dist/
+modelo/build/
+*.egg-info/
+.pytest_cache/
