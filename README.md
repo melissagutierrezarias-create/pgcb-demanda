@@ -18,6 +18,10 @@ src/entrenar.py      entrena un modelo de demanda y lo registra en MLflow
 src/experimentos.py  corre los experimentos de demanda, registra el modelo final y lo exporta a models/
 src/figuras_demanda.py  figuras de evaluación del modelo de demanda
 docs/                guía de MLflow en EC2
+src/empaquetar.py    entrena los modelos finales y los guarda en el paquete (Entrega 3)
+modelo/              paquete instalable pgcb_modelo: modelos entrenados, variables y pronóstico 24 h
+api/                 API FastAPI que sirve el paquete, con su Dockerfile
+tablero/             tablero en Dash
 ```
 
 ## Cómo reproducir
