@@ -3,7 +3,8 @@
 .kpi { flex: 1; background-color: #1f2630; padding: 1rem 1.5rem; }
 .kpi-titulo { margin: 0; font-size: 13px; color: #7fafdf; }
 .kpi-valor { margin: 0.5rem 0 0 0; font-size: 2.4rem; font-weight: 600; color: #2cfec1; }
-#kpi-horas, #kpi-deficit { color: #ff6b6b; }
+#kpi-horas, #kpi-prob { color: #ff6b6b; }
+#estado-api { margin-top: auto; padding: 1rem 0; }
 
 /* Panel de alertas (columna izquierda) */
 #alert-card > p { font-weight: bold; margin-top: 1.5rem; margin-bottom: 0.5rem; }

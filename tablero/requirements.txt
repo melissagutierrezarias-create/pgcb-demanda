@@ -1,0 +1,5 @@
+dash==4.5.0
+plotly==7.1.0
+pandas>=2.2
+numpy>=1.26
+requests>=2.31
